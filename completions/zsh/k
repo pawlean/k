@@ -17,13 +17,11 @@ __k_kspace_parse_config() {
     # Use lead_char in output so each variable has it
     template="{{ range .$1  }}{{ .name }} {{ end }}"
 
-    # ${cur##*,} removes everything up to and including ,
     # we call k so that KUBECONFIG will be properly set
-    # we don't need ${cur%%:*} because we're looking up clusters and contexts
     if k_out=$(k config view -o template --template="${template}"); then
+        # -X adds an explanaton in upper case ${var:u}
+        # -P adds the special kspace character as a prefix
         compadd -X "${1:u}" -P "$lead_char" -S '' $( echo "${k_out[*]}" )
-        # use this so we don't have a space after the cluster/context
-        # in case we want to add :namespace
     fi
 }
 
