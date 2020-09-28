@@ -21,7 +21,7 @@ __k_kspace_parse_config() {
     # we call k so that KUBECONFIG will be properly set
     # we don't need ${cur%%:*} because we're looking up clusters and contexts
     if k_out=$(k config view -o template --template="${template}"); then
-        compadd -X "${1:u}" -P "$lead_char" $( echo "${k_out[*]}" )
+        compadd -X "${1:u}" -P "$lead_char" -S '' $( echo "${k_out[*]}" )
         # use this so we don't have a space after the cluster/context
         # in case we want to add :namespace
     fi
@@ -29,16 +29,31 @@ __k_kspace_parse_config() {
 
 __k_kspace_parse_get() {
     local template
-    template="${2:-"{{ range .items  }}{{ .metadata.name }} {{ end }}"}"
-    local k_out
-    # ${cur%%:*} removes everything after (and including) : so we can lookup the correct namespaces
-    # right now $1 should always be "namespace"
-    if k_out=$(k ${cur%%:*} get -o template --template="${template}" "$1"); then
-        # remove the leading : for filtering compgen
-        cur=${cur#*:}
-        # ${cur##*,} removes everything up to the first comma so ":default,kube" becomes "kube"
-        compadd -X "NAMESPACES" -P "," $( echo "${k_out[*]}" )
-        # don't add a space after the namespace
+    template="{{ range .items  }}{{ .metadata.name }} {{ end }}"
+    local -a k_out compreply
+    #set -x
+    # Creates an array of current used namespaces to delete later from
+    # tab completed options
+    # ${(z)cur} returns array syntax (splits on space)
+    # Read more in http://zsh.sourceforge.net/Doc/Release/Expansion.html#Parameter-Expansion-Flags
+    # ${cur#*:} removes everything before (and including) :
+    # ${cur:gs/,/ } replaces commas with spaces
+    local rmnamespaces=("${(z)${cur#*:}:gs/,/ }")
+
+    if k_out=($(k ${cur%%:*} get -o template --template="${template}" namespace)); then
+        # this is zsh magic that subtracts rmnamespaces from k_out array
+        compreply=("${(@)k_out:|rmnamespaces}")
+        # -X add NAMESPACES header
+        # ${cur%${1}*}${1} remove everything from cur up to and including ${1}
+        # but add the passed character back because we want it on the line
+        # ${1} will be a : or , depending on if we're declaring the first
+        # namespace or multiple (eg :namespace,default,kube-system}
+        # -p tells compadd to treat it as a "hidden-prefix" so completion
+        # options don't include it.
+        # -S '' means no space will be included after tab (adds suffix)
+        # -a uses values from the compreply array
+        compadd -X "NAMESPACES" -p "${cur%${1}*}${1}" -S '' -a compreply
+    #set +x
     fi
 }
 
@@ -50,7 +65,7 @@ __k_kspace_parse_config_clusters() {
 }
 __k_kspace_get_resource_namespace()
 {
-    __k_kspace_parse_get "namespace"
+    __k_kspace_parse_get "${1}"
 }
 
 __k_handle_kspace() {
@@ -64,35 +79,25 @@ __k_handle_kspace() {
     # because case is processed in order
     :*,* | *:*,* )
         # This will match for multiple namespaces
-        #
-        # remove a leading colon from the prefix
-        # because otherwise each tab complete will add it to the front
-        # because we're using _get_comp_words_by_ref -n :
-        # ${cur#:} removes the shortest leading match which will only be
-        # a leading : in this case
-        cur=${cur#:}
-        # $cur matches *,* so we want our prefix to be
-        # everything before the last comma (adding a comma)
-        prefix="${cur%,*},"
-        # more $cur manipulation happens in this function
-        __k_kspace_get_resource_namespace
+        __k_kspace_get_resource_namespace ','
         # add the prefix back to the matched value
         # ${COMPREPLY[@]/#/prefix} will add the current line back to each
         # element in the COMPREPLY array
         # Using ${prefix#*:} removes everything before the : so we make
         # sure we only add the namespaces because : is considered a new arg
         # even though everything before it is part of $cur
-        COMPREPLY=( "${COMPREPLY[@]/#/${prefix#*:}}" )
+        #compadd $( echo "${COMPREPLY[@]/#/${prefix#*:}}" )
         ;;
     :* )
         # This matches for standalone :namespace
-        __k_kspace_get_resource_namespace
+        __k_kspace_get_resource_namespace ':'
         ;;
     *:* )
         # This matches for +context:namespace or @cluster:namespace
-        [[ $cur == *,* ]] && prefix="${cur%,*},"
-        __k_kspace_get_resource_namespace
-        COMPREPLY=( "${COMPREPLY[@]/#/$prefix}" )
+        # If current word has a comma then save everything up to the comma
+        # as prefix
+        __k_kspace_get_resource_namespace ':'
+        #compadd -P $prefix $( echo "${COMPREPLY[@]}" )
         ;;
     +* )
         # This will match contexts without namespaces
