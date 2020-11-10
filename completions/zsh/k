@@ -1,13 +1,15 @@
 #compdef k
 
 # This modifies the zsh compeltion output with the extra words and function handling we need
+# The output of this command is appended to the end of this file after our custom completion
+# functions
 #
 # kubectl completion zsh | sed \
 #     -e 's/kubectl/k/g' \
-#     -e '/commands+=("wait")/a commands+=("@")\n\tcommands+=("+")\n\tcommands+=(":")\n' \
+#     -e '/commands+=("wait")/a \tcommands+=("@")\n\tcommands+=("+")\n\tcommands+=(":")\n' \
 #     -e '/__k_handle_word()$/{
 #     N
-#     a for char in @ : +; do if [[ $\{words[c]\} = $char* ]]; then\n __k_handle_kspace\n\treturn\n\tfi\n done
+#     a for char in @ : +; do if [[ $\{cur\} = $char* ]]; then\n __k_handle_kspace\n\treturn\n\tfi\n done
 # }'
 
 __k_kspace_parse_config() {
@@ -24,7 +26,7 @@ __k_kspace_parse_config() {
 
     # Use lead_char in output so each variable has it
     template="{{ range .$1  }}{{ .name }} {{ end }}"
-    
+
     for arg in ${words[*]}; do
         if [[ $arg = ${lead_char}* ]]; then
             # appends to rmskpaces any kspace already on the command line
@@ -39,10 +41,10 @@ __k_kspace_parse_config() {
         k_out+=($kspace)
     done
         # this is zsh magic that subtracts rmnamespaces from k_out array
-        compreply=("${(@)k_out:|rmkspaces}")
+        #compreply=("${(@)k_out:|rmkspaces}")
         # -X adds an explainaton in upper case ${var:u}
         # -P adds the special kspace character as a prefix
-        compadd -X "${1:u}" -P "$lead_char" -S '' -a compreply
+        compadd -X "${1:u}" -P "$lead_char" -S '' $(echo ${k_out[*]})
 }
 
 __k_kspace_parse_get() {
@@ -88,7 +90,7 @@ __k_handle_kspace() {
     # get current word
     # $words is an array of the entire line
     # $CURRENT is the number of the word where the cursor is (starting at 1)
-    cur="${words[$(($CURRENT -1))]}"
+    #cur="${words[$CURRENT]}"
 
     # try to find a pattern match for the current argument
     case $cur in
@@ -121,6 +123,10 @@ __k_handle_kspace() {
         ;;
     esac
 }
+
+#
+# Everything below this point is generated from the kubectl completion zsh command
+#
 
 # Copyright 2016 The Kubernetes Authors.
 #
@@ -533,7 +539,7 @@ __k_handle_command()
 
 __k_handle_word()
 {
-for char in @ : +; do if [[ ${words[c]} = $char* ]]; then
+for char in @ : +; do if [[ ${cur} = $char* ]]; then
  __k_handle_kspace
 	return
 	fi
@@ -13088,9 +13094,9 @@ _k_root_command()
     commands+=("uncordon")
     commands+=("version")
     commands+=("wait")
-commands+=("@")
-	commands+=("+")
-	commands+=(":")
+    commands+=("@")
+    commands+=(":")
+    commands+=("+")
 
 
     flags=()
