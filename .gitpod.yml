@@ -1,4 +1,6 @@
-image: gitpod/workspace-full
+image:
+  file: .gitpod.Dockerfile
+  
 tasks:
   - name: install deps
     before: brew install kubernetes-cli
