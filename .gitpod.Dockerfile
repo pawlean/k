@@ -1,9 +1,8 @@
 FROM gitpod/workspace-full
 
-RUN apt update && \
-    apt install -y -q --allow-unauthenticated \
-    git \
-    sudo
+RUN sudo apt update && \
+    sudo apt install -y -q --allow-unauthenticated \
+    git 
 RUN useradd -m -s /bin/zsh linuxbrew && \
     usermod -aG sudo linuxbrew &&  \
     mkdir -p /home/linuxbrew/.linuxbrew && \
