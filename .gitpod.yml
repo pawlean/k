@@ -2,6 +2,7 @@ image:
   file: .gitpod.Dockerfile
   
 tasks:
+  - command: zsh
   - name: install deps
     before: brew install kubernetes-cli
     
