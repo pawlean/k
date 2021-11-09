@@ -1,4 +1,4 @@
-FROM ubuntu:21.04
+FROM gitpod/workspace-full
 
 RUN apt update && \
     apt install -y -q --allow-unauthenticated \
